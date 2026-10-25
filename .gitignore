@@ -1,0 +1,11 @@
+# Fetched by kpm/build.sh
+vendor/kpm-helper.py
+vendor/*.tgz
+
+# Build output
+build/
+dist/
+
+# If you publish .kpkg files as GitHub release assets instead of committing
+# them, uncomment this and switch repo/manifest.json to absolute URLs.
+#repo/packages/
