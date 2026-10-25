@@ -77,8 +77,10 @@ if [ ! -f "${REPO}/manifest.json" ]; then
 fi
 
 echo "Adding to repo..."
-VERSION="$(python3 -c "import json;print('.'.join(str(n) for n in json.load(open('${ROOT}/kpm/manifest.json'))['version']))")"
-python3 "${HELPER}" repo remove "${REPO}" tailscale-koplugin --version "${VERSION}" 2>/dev/null || true
+# Drop every existing artifact for this package first. Passing --version here
+# would only remove the version being built, leaving entries behind that point
+# at .kpkg files no longer in the tree. This catalog carries latest-only.
+python3 "${HELPER}" repo remove "${REPO}" tailscale-koplugin 2>/dev/null || true
 python3 "${HELPER}" repo add "${REPO}" "${KPKG}"
 
 echo "Done. Repo is ready to publish:"
