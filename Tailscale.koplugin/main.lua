@@ -78,17 +78,49 @@ function Tailscale:isRunning()
     return pid ~= nil and util.pathExists("/proc/" .. pid)
 end
 
--- True once the node has authenticated and holds a tailnet address.
-function Tailscale:isConnected()
-    if not self:isRunning() then return false end
-    local out = capture(cli("ip -4"))
-    return out ~= nil and out:match("^%d+%.%d+%.%d+%.%d+") ~= nil
+-- Asking tailscale for our address forks a process, and the menu asks several
+-- times per render, so cache it briefly. invalidateState() drops the cache when
+-- we do something that changes it.
+local STATE_TTL = 2
+
+function Tailscale:invalidateState()
+    self.ip_cache = nil
+    self.ip_cached_at = nil
 end
 
 function Tailscale:getIP()
-    local out = capture(cli("ip -4"))
-    if not out then return nil end
-    return out:match("(%d+%.%d+%.%d+%.%d+)")
+    local now = os.time()
+    if self.ip_cached_at and (now - self.ip_cached_at) < STATE_TTL then
+        return self.ip_cache
+    end
+    local ip
+    if self:isRunning() then
+        local out = capture(cli("ip -4"))
+        ip = out and out:match("(%d+%.%d+%.%d+%.%d+)") or nil
+    end
+    self.ip_cache = ip
+    self.ip_cached_at = now
+    return ip
+end
+
+-- True once the node has authenticated and holds a tailnet address.
+function Tailscale:isConnected()
+    return self:getIP() ~= nil
+end
+
+-- Menu items render from checked_func/enabled_func, which only re-run when the
+-- open menu is told to update. Without this, the daemon checkbox and the
+-- Connect/Disconnect entries keep showing stale state until the menu is
+-- reopened. The stored instance may outlive the menu, hence the pcall.
+function Tailscale:refreshMenu(touchmenu_instance)
+    if touchmenu_instance then
+        self.touchmenu_instance = touchmenu_instance
+    end
+    self:invalidateState()
+    local instance = self.touchmenu_instance
+    if instance then
+        pcall(function() instance:updateItems() end)
+    end
 end
 
 function Tailscale:startDaemon(quiet)
@@ -113,6 +145,7 @@ function Tailscale:startDaemon(quiet)
         STATE_DIR, BIN_DIR, STATE_DIR, STATE_DIR, SOCKET, tun, proxies, DAEMON_LOG, PID_FILE)
     logger.dbg("[Tailscale] starting daemon:", cmd)
     os.execute(cmd)
+    self:invalidateState()
 
     -- The socket takes a moment to appear; wait for it rather than guessing.
     for _ = 1, 20 do
@@ -166,6 +199,7 @@ function Tailscale:stopDaemon(quiet)
 
     os.remove(PID_FILE)
     os.remove(SOCKET)
+    self:invalidateState()
 
     if not quiet then
         UIManager:show(InfoMessage:new{
@@ -232,12 +266,14 @@ function Tailscale:pollForLogin(elapsed)
             text = T(_("Open this URL on your phone or computer to authorize this Kindle:\n\n%1"), url),
         })
         -- Keep watching: once authorized, report the address we were given.
+        self:refreshMenu()
         self:pollForConnected(0)
         return
     end
 
     if self:isConnected() then
         self:dismissWaiting()
+        self:refreshMenu()
         self:showStatus()
         return
     end
@@ -247,7 +283,9 @@ end
 
 function Tailscale:pollForConnected(elapsed)
     if elapsed > 300 then return end
+    self:invalidateState()
     if self:isConnected() then
+        self:refreshMenu()
         self:showStatus()
         return
     end
@@ -263,6 +301,7 @@ end
 
 function Tailscale:disconnect()
     os.execute(cli("down"))
+    self:invalidateState()
     UIManager:show(InfoMessage:new{
         text = _("Tailscale disconnected."),
         timeout = 2,
@@ -348,20 +387,26 @@ function Tailscale:addToMainMenu(menu_items)
                     else
                         self:startDaemon()
                     end
-                    if touchmenu_instance then touchmenu_instance:updateItems() end
+                    self:refreshMenu(touchmenu_instance)
                 end,
             },
             {
                 text = _("Connect"),
                 keep_menu_open = true,
                 enabled_func = function() return not self:isConnected() end,
-                callback = function() self:connect() end,
+                callback = function(touchmenu_instance)
+                    self:connect()
+                    self:refreshMenu(touchmenu_instance)
+                end,
             },
             {
                 text = _("Disconnect"),
                 keep_menu_open = true,
                 enabled_func = function() return self:isConnected() end,
-                callback = function() self:disconnect() end,
+                callback = function(touchmenu_instance)
+                    self:disconnect()
+                    self:refreshMenu(touchmenu_instance)
+                end,
                 separator = true,
             },
             {
