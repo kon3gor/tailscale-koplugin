@@ -6,7 +6,7 @@
   "description": "Connect your Kindle to a Tailscale network from inside KOReader",
   "version": [
     1,
-    0,
+    1,
     0
   ],
   "dependencies": [

@@ -47,6 +47,8 @@ mkdir -p "${STAGE}/tailscale"
 cp "${ROOT}/kpm/manifest.json" "${STAGE}/manifest.json"
 cp "${ROOT}/kpm/install.sh" "${STAGE}/install.sh"
 cp "${ROOT}/kpm/uninstall.sh" "${STAGE}/uninstall.sh"
+cp "${ROOT}/kpm/launch.sh" "${STAGE}/launch.sh"
+cp -r "${ROOT}/kpm/scriptlets" "${STAGE}/scriptlets"
 cp -r "${ROOT}/Tailscale.koplugin" "${STAGE}/Tailscale.koplugin"
 
 # The upstream tarball unpacks to tailscale_<ver>_<arch>/{tailscale,tailscaled}.

@@ -67,6 +67,13 @@ Copy `Tailscale.koplugin/` into `/mnt/us/koreader/plugins/`, then put the
 | Userspace networking | See below |
 | Start daemon with KOReader | Brings the daemon up when KOReader launches |
 
+The KPM package also installs a **Tailscale** scriptlet in your library. Tapping
+it toggles the daemon without opening KOReader — useful after a reboot when you
+want to SSH in over the tailnet and nothing is running yet. It shares its
+pidfile and socket with the plugin, so both always agree on the state, and it
+reads a reusable auth key from `/mnt/us/tailscale/auth.key` if you put one
+there.
+
 The login is stored in `/mnt/us/tailscale/state`, so you authorize once. A
 "Toggle Tailscale" action is registered with KOReader's dispatcher, so you can
 bind it to a gesture or key.

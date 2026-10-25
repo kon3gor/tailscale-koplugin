@@ -1,8 +1,18 @@
 #!/bin/sh
-# Installs the Tailscale KOReader plugin and the Tailscale binaries it drives.
+# Installs the Tailscale KOReader plugin, the Tailscale binaries it drives, and
+# a library scriptlet that toggles the daemon without opening KOReader.
+#
+# KPM passes "upgrade" as $1 when this runs as part of an upgrade, and exports
+# $KPM_PLATFORM and $KPM_VERSION_* (KPM 0.3.0+). stdout lands in the KPM log.
 
 KOREADER_PLUGINS=/mnt/us/koreader/plugins
 TAILSCALE_DIR=/mnt/us/tailscale
+SCRIPTLET=/mnt/us/documents/Tailscale.sh
+
+if [ "$1" = "upgrade" ]; then
+    echo "Upgrading (state in ${TAILSCALE_DIR}/state is kept)"
+fi
+[ -n "${KPM_PLATFORM}" ] && echo "Platform: ${KPM_PLATFORM}"
 
 if [ ! -d /mnt/us/koreader ]; then
     echo "KOReader is not installed at /mnt/us/koreader - aborting"
@@ -41,4 +51,9 @@ rm -rf "${KOREADER_PLUGINS}/Tailscale.koplugin"
 cp -rf ./Tailscale.koplugin "${KOREADER_PLUGINS}/"
 rm -rf ./Tailscale.koplugin
 
-echo "Done. Restart KOReader, then open Network -> Tailscale."
+# ./scriptlets is deliberately left in place: uninstall.sh compares against it
+# so it never deletes a scriptlet that isn't ours.
+echo "Installing library scriptlet..."
+cp -f ./scriptlets/Tailscale.sh "${SCRIPTLET}"
+
+echo "Done. Restart KOReader for Network -> Tailscale, or tap Tailscale in your library."
